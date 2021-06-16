@@ -18,6 +18,7 @@ func TestMain(m *testing.M) {
 
 func mockCache() {
 	c = NewMemCache()
+	cw = c.GetCleanupWorker()
 	c.Set("int", 1)
 	c.Set("int32", int32(1))
 	c.Set("int64", int64(1))
@@ -678,3 +679,9 @@ func TestMemCache_Ttl(t *testing.T) {
 		})
 	}
 }
+
+//func BenchmarkMemCache_Set(b *testing.B) {
+//	for i := 0; i < b.N; i++ {
+//		c.Set(fmt.Sprintf("%d", i), "a", WithEx(1*time.Millisecond))
+//	}
+//}

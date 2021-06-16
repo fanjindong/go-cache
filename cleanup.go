@@ -2,10 +2,9 @@ package cache
 
 import "time"
 
-type IRingBufferWheel interface {
+type ICleanupWorker interface {
 	Run()
 	Register(string, time.Time)
-	Delete(string)
 }
 
 type rbwItem struct {
@@ -43,14 +42,10 @@ func (r *RingBufferWheel) Register(key string, expireAt time.Time) {
 	r.buffers[index].next = &rbwItem{key: key, counter: int(duration / time.Minute)}
 }
 
-func (r *RingBufferWheel) Delete(key string) {
-	r.c.Del(key)
-}
-
 func (r *RingBufferWheel) checkLinkedList(item *rbwItem) {
-	for item.next != nil {
+	for item != nil && item.next != nil {
 		if item.next.counter <= 0 {
-			r.Delete(item.next.key)
+			r.c.Del(item.next.key)
 			item.next = item.next.next
 			continue
 		}

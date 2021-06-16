@@ -166,14 +166,17 @@ type ICache interface {
 	//c.Set("demo:2", "2")
 	//c.Keys("demo:.*") // []string{"demo:1", "demo:2"}, nil
 	Keys(string) ([]string, error)
+	SetCleanupWorker(ICleanupWorker)
+	GetCleanupWorker() ICleanupWorker
 }
 
 func NewMemCache(opts ...ICacheOption) *MemCache {
 	cache := &MemCache{m: make(map[string]*Item)}
+	cache.SetCleanupWorker(NewRingBufferWheel(cache))
 	for _, opt := range opts {
 		opt(cache)
 	}
-	go NewRingBufferWheel(cache).Run()
+	go cache.cw.Run()
 	return cache
 }
 
@@ -196,14 +199,7 @@ func (i *Item) HasExpiredAttributes() bool {
 type MemCache struct {
 	rw sync.RWMutex
 	m  map[string]*Item
-}
-
-func (c *MemCache) eliminationWorker() {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-
-	}
+	cw ICleanupWorker
 }
 
 func (c *MemCache) Set(k string, v interface{}, opts ...SetIOption) bool {
@@ -215,6 +211,9 @@ func (c *MemCache) Set(k string, v interface{}, opts ...SetIOption) bool {
 	}
 	c.rw.Lock()
 	defer c.rw.Unlock()
+	if item.HasExpiredAttributes() {
+		c.cw.Register(k, item.expire)
+	}
 	c.m[k] = &item
 	return true
 }
@@ -360,7 +359,7 @@ func (c *MemCache) Ttl(k string) (time.Duration, bool) {
 	c.rw.RLock()
 	v, found := c.m[k]
 	c.rw.RUnlock()
-	if !found || !v.HasExpiredAttributes() {
+	if !found || !v.HasExpiredAttributes() || v.Expired() {
 		return 0, false
 	}
 	return v.expire.Sub(time.Now()), true
@@ -415,6 +414,13 @@ func (c *MemCache) Keys(pattern string) ([]string, error) {
 	return keys, nil
 }
 
+func (c *MemCache) SetCleanupWorker(cw ICleanupWorker) {
+	c.cw = cw
+}
+func (c *MemCache) GetCleanupWorker() ICleanupWorker {
+	return c.cw
+}
+
 func incrByInt(item *Item, inc int64) (int64, error) {
 	switch item.v.(type) {
 	case int:
@@ -449,3 +455,5 @@ func incrByFloat(item *Item, inc float64) (float64, error) {
 		return 0, fmt.Errorf("cache: incr err, invaild value type: %+v", item.v)
 	}
 }
+
+
