@@ -1,2 +1,2 @@
 # go-cache
-Inherit and develop patrickmn/go-cache
+Inherit and develop `github.com/patrickmn/go-cache`
