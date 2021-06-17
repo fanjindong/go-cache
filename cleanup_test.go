@@ -46,8 +46,8 @@ func TestRingBufferWheel_Run(t *testing.T) {
 		args args
 		want bool
 	}{
-		{name: "1", args: args{k: "run1", d: 1 * time.Second}, want: false},
-		{name: "2", args: args{k: "run2", d: 2 * time.Second}, want: true},
+		{name: "1", args: args{k: "run1", d: 0 * time.Second}, want: false},
+		{name: "2", args: args{k: "run2", d: 1 * time.Second}, want: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
