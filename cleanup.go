@@ -34,6 +34,8 @@ func (r *RingBufferWheel) Run() {
 }
 
 func (r *RingBufferWheel) Register(key string, expireAt time.Time) {
+	// Round up to prevent early expiration
+	expireAt = expireAt.Add(1 * time.Second)
 	index := expireAt.Second()
 	if r.buffers[index] == nil {
 		r.buffers[index] = &rbwItem{}

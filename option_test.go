@@ -9,7 +9,7 @@ import (
 func TestWithEx(t *testing.T) {
 	type args struct {
 		key string
-		v   interface{}
+		v interface{}
 		opt SetIOption
 	}
 	tests := []struct {
@@ -18,9 +18,9 @@ func TestWithEx(t *testing.T) {
 		sleep time.Duration
 		want  bool
 	}{
-		{name: "int", args: args{key: "int", v: 1, opt: WithEx(1 * time.Second)}, sleep: 0, want: true},
-		{name: "int", args: args{key: "int", v: 1, opt: WithEx(1 * time.Second)}, sleep: 1 * time.Second, want: false},
-		{name: "int", args: args{key: "int", v: 1, opt: WithEx(2 * time.Second)}, sleep: 1 * time.Second, want: true},
+		{name: "int", args: args{key: "intWithEx", v: 1,  opt: WithEx(10 * time.Millisecond)}, sleep: 0, want: true},
+		{name: "int", args: args{key: "intWithEx", v: 1,  opt: WithEx(10 * time.Millisecond)}, sleep: 10 * time.Millisecond, want: false},
+		{name: "int", args: args{key: "intWithEx",  v: 1, opt: WithEx(100 * time.Millisecond)}, sleep: 50 * time.Millisecond, want: true},
 	}
 	mockCache()
 	for _, tt := range tests {
