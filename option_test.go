@@ -77,6 +77,7 @@ func TestWithNx(t *testing.T) {
 		{name: "nullWithNx", args: args{key: "nullWithNx"}, want: true},
 		{name: "int", args: args{key: "int", v: 1}, want: false},
 	}
+	mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Set(tt.args.key, "v", WithNx()); !reflect.DeepEqual(got, tt.want) {
