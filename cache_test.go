@@ -680,8 +680,91 @@ func TestMemCache_Ttl(t *testing.T) {
 	}
 }
 
-//func BenchmarkMemCache_Set(b *testing.B) {
-//	for i := 0; i < b.N; i++ {
-//		c.Set(fmt.Sprintf("%d", i), "a", WithEx(1*time.Millisecond))
-//	}
-//}
+func TestMemCache_DelExpired(t *testing.T) {
+	type args struct {
+		k string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{name: "int", args: args{k: "int"}, want: 0},
+		{name: "exDelExpired", args: args{k: "exDelExpired"}, want: 1},
+	}
+	c.Set("exDelExpired", 1, WithEx(1*time.Nanosecond))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := c.DelExpired(tt.args.k); got != tt.want {
+				t.Errorf("DelExpired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemCache_BeforeExpiration(t *testing.T) {
+	c := NewMemCache()
+	type args struct {
+		middlewares []Middleware
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantFunc func() bool
+		want     bool
+	}{
+		{args: args{middlewares: []Middleware{func(key string, value interface{}) { t.Log("Middleware Set", key, value); c.Set(key, value) }}},
+			wantFunc: func() bool {
+				time.Sleep(150 * time.Millisecond)
+				return c.Exists("100MillisecondExBeforeExpiration")
+			}, want: true},
+		{args: args{middlewares: []Middleware{func(key string, value interface{}) { t.Log("Middleware Del", key, value); c.Del(key) }}},
+			wantFunc: func() bool {
+				time.Sleep(150 * time.Millisecond)
+				return c.Exists("100MillisecondExBeforeExpiration")
+			}, want: false},
+	}
+	for _, tt := range tests {
+		c.Set("100MillisecondExBeforeExpiration", 1, WithEx(100*time.Millisecond))
+		t.Run(tt.name, func(t *testing.T) {
+			c.BeforeExpiration(tt.args.middlewares...)
+			if got := tt.wantFunc(); got != tt.want {
+				t.Errorf("BeforeExpiration() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMemCache_AfterExpiration(t *testing.T) {
+	c := NewMemCache()
+	type args struct {
+		middlewares []Middleware
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantFunc func() bool
+		want     bool
+	}{
+		{args: args{middlewares: []Middleware{func(key string, value interface{}) { t.Log("Middleware Set", key, value); c.Set(key, value) }}},
+			wantFunc: func() bool {
+				if c.Exists("100MillisecondExAfterExpiration") != true {
+					return false
+				}
+				time.Sleep(150 * time.Millisecond)
+				if c.Exists("100MillisecondExAfterExpiration") != false {
+					return false
+				}
+				return c.Exists("100MillisecondExAfterExpiration")
+			}, want: true},
+	}
+	for _, tt := range tests {
+		c.Set("100MillisecondExAfterExpiration", 1, WithEx(100*time.Millisecond))
+		t.Run(tt.name, func(t *testing.T) {
+			c.AfterExpiration(tt.args.middlewares...)
+			if got := tt.wantFunc(); got != tt.want {
+				t.Errorf("AfterExpiration() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

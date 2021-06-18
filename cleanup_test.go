@@ -51,8 +51,11 @@ func TestRingBufferWheel_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			now := time.Now()
 			c.Set(tt.args.k, "v", WithEx(tt.args.d))
-			time.Sleep(1100 * time.Millisecond)
+			time.Sleep(now.Add(1100*time.Millisecond).Sub(time.Now()))
+			c.(*MemCache).rw.RLock()
+			defer c.(*MemCache).rw.RUnlock()
 			_, got := c.(*MemCache).m[tt.args.k]
 			if got != tt.want {
 				t.Errorf("Run() got = %v, want %v", got, tt.want)
