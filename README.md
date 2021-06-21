@@ -14,7 +14,7 @@ Provides a memory-based `cache package` for `Gopher`, and its interface definiti
 import "github.com/fanjindong/go-cache"
 
 func main() {
-    c = NewMemCache()
+    c := cache.NewMemCache()
     c.Set("a", 1)
     c.Set("b", 1, WithEx(1*time.Second))
     time.sleep(1*time.Second)
