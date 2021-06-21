@@ -49,14 +49,15 @@ func TestRingBufferWheel_Run(t *testing.T) {
 		{name: "1", args: args{k: "run1", d: 0 * time.Second}, want: false},
 		{name: "2", args: args{k: "run2", d: 1 * time.Second}, want: true},
 	}
+	c := NewMemCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			now := time.Now()
 			c.Set(tt.args.k, "v", WithEx(tt.args.d))
-			time.Sleep(now.Add(1100*time.Millisecond).Sub(time.Now()))
-			c.(*MemCache).rw.RLock()
-			defer c.(*MemCache).rw.RUnlock()
-			_, got := c.(*MemCache).m[tt.args.k]
+			time.Sleep(now.Add(1100 * time.Millisecond).Sub(time.Now()))
+			c.rw.RLock()
+			_, got := c.m[tt.args.k]
+			c.rw.RUnlock()
 			if got != tt.want {
 				t.Errorf("Run() got = %v, want %v", got, tt.want)
 			}

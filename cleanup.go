@@ -1,6 +1,8 @@
 package cache
 
-import "time"
+import (
+	"time"
+)
 
 type ICleanupWorker interface {
 	Run()
@@ -47,7 +49,7 @@ func (r *RingBufferWheel) Register(key string, expireAt time.Time) {
 func (r *RingBufferWheel) checkLinkedList(item *rbwItem) {
 	for item != nil && item.next != nil {
 		if item.next.counter <= 0 {
-			r.c.Del(item.next.key)
+			r.c.DelExpired(item.next.key)
 			item.next = item.next.next
 			continue
 		}
