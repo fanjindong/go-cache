@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 func TestWithEx(t *testing.T) {
 	type args struct {
 		key string
-		v interface{}
+		v   interface{}
 		opt SetIOption
 	}
 	tests := []struct {
@@ -18,9 +19,9 @@ func TestWithEx(t *testing.T) {
 		sleep time.Duration
 		want  bool
 	}{
-		{name: "int", args: args{key: "intWithEx", v: 1,  opt: WithEx(10 * time.Millisecond)}, sleep: 0, want: true},
-		{name: "int", args: args{key: "intWithEx", v: 1,  opt: WithEx(10 * time.Millisecond)}, sleep: 10 * time.Millisecond, want: false},
-		{name: "int", args: args{key: "intWithEx",  v: 1, opt: WithEx(100 * time.Millisecond)}, sleep: 50 * time.Millisecond, want: true},
+		{name: "int", args: args{key: "intWithEx", v: 1, opt: WithEx(10 * time.Millisecond)}, sleep: 0, want: true},
+		{name: "int", args: args{key: "intWithEx", v: 1, opt: WithEx(10 * time.Millisecond)}, sleep: 10 * time.Millisecond, want: false},
+		{name: "int", args: args{key: "intWithEx", v: 1, opt: WithEx(100 * time.Millisecond)}, sleep: 50 * time.Millisecond, want: true},
 	}
 	mockCache()
 	for _, tt := range tests {
@@ -106,6 +107,36 @@ func TestWithXx(t *testing.T) {
 			if got := c.Set(tt.args.key, tt.args.v, WithXx()); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("WithXx() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+type ringBufferWheelHello struct {
+	*RingBufferWheel
+}
+
+func (r *ringBufferWheelHello) Register(key string, expireAt time.Time) {
+	fmt.Println("hello", key)
+	r.RingBufferWheel.Register(key, expireAt)
+}
+
+func TestWithCleanup(t *testing.T) {
+
+	type args struct {
+		cw ICleanupWorker
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{name: "int", args: args{cw: &ringBufferWheelHello{NewRingBufferWheel()}}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewMemCache(WithCleanup(tt.args.cw))
+			c.Set("a", 1, WithEx(100*time.Millisecond))
+			time.Sleep(1 * time.Second)
 		})
 	}
 }

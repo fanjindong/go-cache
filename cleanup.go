@@ -5,7 +5,7 @@ import (
 )
 
 type ICleanupWorker interface {
-	Run()
+	Run(cache ICache)
 	Register(string, time.Time)
 }
 
@@ -20,11 +20,13 @@ type RingBufferWheel struct {
 	buffers [60]*rbwItem
 }
 
-func NewRingBufferWheel(c ICache) *RingBufferWheel {
-	return &RingBufferWheel{c: c}
+//NewRingBufferWheel Clean up expired cache every second
+func NewRingBufferWheel() *RingBufferWheel {
+	return &RingBufferWheel{}
 }
 
-func (r *RingBufferWheel) Run() {
+func (r *RingBufferWheel) Run(cache ICache) {
+	r.c = cache
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {

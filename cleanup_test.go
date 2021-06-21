@@ -22,7 +22,7 @@ func TestRingBufferWheel_Register(t *testing.T) {
 		{name: "1", args: args{key: "1", expireAt: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 1, 0, now.Location())}, wantIndex: 2, wantCounter: 0},
 		{name: "2", args: args{key: "2", expireAt: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 59, 0, now.Location())}, wantIndex: 0, wantCounter: 0},
 	}
-	cw := NewRingBufferWheel(c)
+	cw := NewRingBufferWheel()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cw.Register(tt.args.key, tt.args.expireAt)

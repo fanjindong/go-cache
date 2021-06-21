@@ -41,3 +41,10 @@ func WithXx() SetIOption {
 }
 
 type ICacheOption func(ICache)
+
+//WithCleanup set custom cleanup worker
+func WithCleanup(cw ICleanupWorker) ICacheOption {
+	return func(cache ICache) {
+		cache.SetCleanupWorker(cw)
+	}
+}

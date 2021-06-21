@@ -187,11 +187,11 @@ type Middleware func(key string, value interface{})
 
 func NewMemCache(opts ...ICacheOption) *MemCache {
 	cache := &MemCache{m: make(map[string]*Item)}
-	cache.SetCleanupWorker(NewRingBufferWheel(cache))
+	cache.SetCleanupWorker(NewRingBufferWheel())
 	for _, opt := range opts {
 		opt(cache)
 	}
-	go cache.cw.Run()
+	go cache.cw.Run(cache)
 	return cache
 }
 
