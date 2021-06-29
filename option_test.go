@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -116,7 +115,6 @@ type ringBufferWheelHello struct {
 }
 
 func (r *ringBufferWheelHello) Register(key string, expireAt time.Time) {
-	fmt.Println("hello", key)
 	r.RingBufferWheel.Register(key, expireAt)
 }
 
