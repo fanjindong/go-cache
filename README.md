@@ -16,7 +16,7 @@ import "github.com/fanjindong/go-cache"
 func main() {
     c := cache.NewMemCache()
     c.Set("a", 1)
-    c.Set("b", 1, WithEx(1*time.Second))
+    c.Set("b", 1, cache.WithEx(1*time.Second))
     time.sleep(1*time.Second)
     c.Get("a") // 1, true
     c.Get("b") // nil, false
