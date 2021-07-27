@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"math/rand"
 	"regexp"
 	"sync"
@@ -23,66 +22,6 @@ type ICache interface {
 	//c.Set("demo", "value")
 	//c.Get("demo") //"value", true
 	Get(k string) (interface{}, bool)
-	//Incr Increments the number stored at key by one.
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//This operation is limited to 64 bit signed integers.
-	//Note: For calculations, it may try to convert the int64 type to int,int8,int32,int64,..., but it will not change the stored data type.
-	//Example:
-	//c.Incr("demo") //1,nil
-	//c.Set("demo", 99)
-	//c.Incr("demo") //100,nil
-	Incr(k string) (int64, error)
-	//IncrBy Increments the number stored at key by increment.
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//This operation is limited to 64 bit signed integers.
-	//Note: For calculations, it may try to convert the int64 type to int,int8,int32,int64,..., but it will not change the stored data type.
-	//Example:
-	//c.IncrBy("demo", 2) //2,nil
-	//c.Set("demo", 99)
-	//c.IncrBy("demo", 2) //101,nil
-	IncrBy(k string, incr int64) (int64, error)
-	//IncrByFloat Increment the floating point number stored at key by the specified increment.
-	//By using a negative increment value, the result is that the value stored at the key is decremented (by the obvious properties of addition).
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//Note: For calculations, it may try to convert the float64 type to float32,float64, but it will not change the stored data type.
-	//Example:
-	//c.IncrByFloat("demo", 2.1) //2.1,nil
-	//c.Set("demo", 99.1)
-	//c.IncrByFloat("demo", 1.1) //100.2,nil
-	IncrByFloat(k string, incr float64) (float64, error)
-	//Decr Decrements the number stored at key by one.
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//This operation is limited to 64 bit signed integers.
-	//Note: For calculations, it may try to convert the int64 type to int,int8,int32,int64,..., but it will not change the stored data type.
-	//Example:
-	//c.Decr("demo") //-1,nil
-	//c.Set("demo", 99)
-	//c.Decr("demo") //98,nil
-	Decr(k string) (int64, error)
-	//DecrBy Decrements the number stored at key by increment.
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//This operation is limited to 64 bit signed integers.
-	//Note: For calculations, it may try to convert the int64 type to int,int8,int32,int64,..., but it will not change the stored data type.
-	//Example:
-	//c.DecrBy("demo", 2) //-2,nil
-	//c.Set("demo", 99)
-	//c.DecrBy("demo", 2) //98,nil
-	DecrBy(k string, decr int64) (int64, error)
-	//DecrByFloat Decrement the floating point number stored at key by the specified increment.
-	//By using a negative increment value, the result is that the value stored at the key is decremented (by the obvious properties of addition).
-	//If the key does not exist, it is set to 0 before performing the operation.
-	//An error is returned if the key contains a value of the wrong type.
-	//Note: For calculations, it may try to convert the float64 type to float32,float64, but it will not change the stored data type.
-	//Example:
-	//c.DecrByFloat("demo", 2.1) //-2.1,nil
-	//c.Set("demo", 99.1)
-	//c.DecrByFloat("demo", 1.1) //98.0,nil
-	DecrByFloat(k string, decr float64) (float64, error)
 	//GetSet Atomically sets key to value and returns the old value stored at key.
 	//Returns nil,false when key not exists.
 	//Example:
@@ -177,8 +116,6 @@ type ICache interface {
 	SetCleanupWorker(ICleanupWorker)
 	// get the cleanup worker
 	GetCleanupWorker() ICleanupWorker
-	//Middlewares executed before a key expires
-	BeforeExpiration(mws ...Middleware)
 	//Middlewares executed after a key expires
 	AfterExpiration(mws ...Middleware)
 }
@@ -186,12 +123,12 @@ type ICache interface {
 type Middleware func(key string, value interface{})
 
 func NewMemCache(opts ...ICacheOption) *MemCache {
-	cache := &MemCache{m: make(map[string]*Item)}
+	cache := &MemCache{m: make(map[string]Item)}
 	cache.SetCleanupWorker(NewRingBufferWheel())
 	for _, opt := range opts {
 		opt(cache)
 	}
-	go cache.cw.Run(cache)
+	cache.cw.Run(cache)
 	return cache
 }
 
@@ -213,9 +150,8 @@ func (i *Item) HasExpiredAttributes() bool {
 
 type MemCache struct {
 	rw  sync.RWMutex
-	m   map[string]*Item
+	m   map[string]Item
 	cw  ICleanupWorker
-	bmw []Middleware //executed before a key expires
 	amw []Middleware //executed after a key expires
 }
 
@@ -226,100 +162,31 @@ func (c *MemCache) Set(k string, v interface{}, opts ...SetIOption) bool {
 			return false
 		}
 	}
-	c.rw.Lock()
-	defer c.rw.Unlock()
 	if item.HasExpiredAttributes() {
+		c.rw.Lock()
 		c.cw.Register(k, item.expire)
+	} else {
+		c.rw.Lock()
 	}
-	c.m[k] = &item
+	c.m[k] = item
+	c.rw.Unlock()
 	return true
 }
 
 func (c *MemCache) Get(k string) (interface{}, bool) {
-	item, exist := c.get(k)
+	c.rw.RLock()
+	item, exist := c.m[k]
+	c.rw.RUnlock()
 	if !exist {
 		return nil, false
 	}
 	if !item.Expired() {
 		return item.v, true
 	}
-	if c.DelExpired(k) == 1 {
-		return nil, false
+	for _, mw := range c.amw {
+		mw(k, item.v)
 	}
-	return c.Get(k)
-}
-
-func (c *MemCache) get(k string) (item *Item, exist bool) {
-	c.rw.RLock()
-	item, exist = c.m[k]
-	c.rw.RUnlock()
-	return
-}
-
-func (c *MemCache) Incr(k string) (int64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, 1)
-		return 1, nil
-	}
-	return incrByInt(item, 1)
-}
-
-func (c *MemCache) IncrBy(k string, v int64) (int64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, v)
-		return v, nil
-	}
-	return incrByInt(item, v)
-}
-
-func (c *MemCache) IncrByFloat(k string, v float64) (float64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, v)
-		return v, nil
-	}
-	return incrByFloat(item, v)
-}
-
-func (c *MemCache) Decr(k string) (int64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, -1)
-		return -1, nil
-	}
-	return incrByInt(item, -1)
-}
-
-func (c *MemCache) DecrBy(k string, v int64) (int64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, -v)
-		return -v, nil
-	}
-	return incrByInt(item, -v)
-}
-
-func (c *MemCache) DecrByFloat(k string, v float64) (float64, error) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist || item.Expired() {
-		c.Set(k, -v)
-		return -v, nil
-	}
-	return incrByFloat(item, -v)
+	return nil, false
 }
 
 func (c *MemCache) GetSet(k string, v interface{}, opts ...SetIOption) (interface{}, bool) {
@@ -334,14 +201,22 @@ func (c *MemCache) GetDel(k string) (interface{}, bool) {
 
 func (c *MemCache) Del(ks ...string) int {
 	var count int
+	var expiredItem = make(map[string]interface{})
 	c.rw.Lock()
-	defer c.rw.Unlock()
 	for _, k := range ks {
 		if v, found := c.m[k]; found {
 			delete(c.m, k)
 			if !v.Expired() {
 				count++
+			} else {
+				expiredItem[k] = v.v
 			}
+		}
+	}
+	c.rw.Unlock()
+	for k, v := range expiredItem {
+		for _, mw := range c.amw {
+			mw(k, v)
 		}
 	}
 	return count
@@ -351,15 +226,6 @@ func (c *MemCache) Del(ks ...string) int {
 func (c *MemCache) DelExpired(k string) int {
 	c.rw.Lock()
 	item, found := c.m[k]
-	c.rw.Unlock()
-	if !found || !item.Expired() {
-		return 0
-	}
-	for _, mw := range c.bmw {
-		mw(k, item.v)
-	}
-	c.rw.Lock()
-	item, found = c.m[k]
 	if !found || !item.Expired() {
 		c.rw.Unlock()
 		return 0
@@ -471,45 +337,6 @@ func (c *MemCache) GetCleanupWorker() ICleanupWorker {
 	return c.cw
 }
 
-func (c *MemCache) BeforeExpiration(middlewares ...Middleware) {
-	c.bmw = append(c.bmw, middlewares...)
-}
-
 func (c *MemCache) AfterExpiration(middlewares ...Middleware) {
 	c.amw = append(c.amw, middlewares...)
-}
-
-func incrByInt(item *Item, inc int64) (int64, error) {
-	switch item.v.(type) {
-	case int:
-		item.v = item.v.(int) + int(inc)
-		return int64(item.v.(int)), nil
-	case int8:
-		item.v = item.v.(int8) + int8(inc)
-		return int64(item.v.(int8)), nil
-	case int16:
-		item.v = item.v.(int16) + int16(inc)
-		return int64(item.v.(int16)), nil
-	case int32:
-		item.v = item.v.(int32) + int32(inc)
-		return int64(item.v.(int32)), nil
-	case int64:
-		item.v = item.v.(int64) + int64(inc)
-		return int64(item.v.(int64)), nil
-	default:
-		return 0, fmt.Errorf("cache: incr or decr err, invaild value type: %+v", item.v)
-	}
-}
-
-func incrByFloat(item *Item, inc float64) (float64, error) {
-	switch item.v.(type) {
-	case float32:
-		item.v = item.v.(float32) + float32(inc)
-		return float64(item.v.(float32)), nil
-	case float64:
-		item.v = item.v.(float64) + inc
-		return item.v.(float64), nil
-	default:
-		return 0, fmt.Errorf("cache: incr err, invaild value type: %+v", item.v)
-	}
 }

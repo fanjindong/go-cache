@@ -1,23 +1,22 @@
 package cache
 
 import (
+	"sync"
 	"time"
 )
 
 type ICleanupWorker interface {
 	Run(cache ICache)
-	Register(string, time.Time)
+	Register(key string, expireAt time.Time)
 }
 
 type rbwItem struct {
 	counter int
-	key     string
-	next    *rbwItem
 }
 
 type RingBufferWheel struct {
 	c       ICache
-	buffers [60]*rbwItem
+	buffers [60]*linkedList
 }
 
 //NewRingBufferWheel Clean up expired cache every second
@@ -27,14 +26,16 @@ func NewRingBufferWheel() *RingBufferWheel {
 
 func (r *RingBufferWheel) Run(cache ICache) {
 	r.c = cache
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case t := <-ticker.C:
-			r.checkLinkedList(r.buffers[t.Second()])
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case t := <-ticker.C:
+				r.buffers[t.Second()].Check()
+			}
 		}
-	}
+	}()
 }
 
 func (r *RingBufferWheel) Register(key string, expireAt time.Time) {
@@ -42,20 +43,45 @@ func (r *RingBufferWheel) Register(key string, expireAt time.Time) {
 	expireAt = expireAt.Add(1 * time.Second)
 	index := expireAt.Second()
 	if r.buffers[index] == nil {
-		r.buffers[index] = &rbwItem{}
+		r.buffers[index] = newLinkedList(r.c)
 	}
 	duration := expireAt.Sub(time.Now())
-	r.buffers[index].next = &rbwItem{key: key, counter: int(duration / time.Minute)}
+	r.buffers[index].Append(key, &rbwItem{counter: int(duration / time.Minute)})
 }
 
-func (r *RingBufferWheel) checkLinkedList(item *rbwItem) {
-	for item != nil && item.next != nil {
-		if item.next.counter <= 0 {
-			r.c.DelExpired(item.next.key)
-			item.next = item.next.next
+type linkedList struct {
+	sync.Mutex
+	m map[string]rbwItem
+	c ICache
+}
+
+func newLinkedList(c ICache) *linkedList {
+	return &linkedList{c: c, m: make(map[string]rbwItem)}
+}
+
+func (l *linkedList) Append(key string, item *rbwItem) {
+	l.Lock()
+	l.m[key] = *item
+	l.Unlock()
+}
+
+func (l *linkedList) Check() {
+	if l == nil {
+		return
+	}
+	var expiredKeys []string
+	l.Lock()
+	for k, item := range l.m {
+		if item.counter <= 0 {
+			delete(l.m, k)
+			expiredKeys = append(expiredKeys, k)
 			continue
 		}
-		item.next.counter--
-		item = item.next
+		item.counter--
+		l.m[k] = item
+	}
+	l.Unlock()
+	for _, k := range expiredKeys {
+		l.c.DelExpired(k)
 	}
 }

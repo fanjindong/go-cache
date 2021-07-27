@@ -20,26 +20,6 @@ func WithExAt(t time.Time) SetIOption {
 	}
 }
 
-//WithNx Only set the key if it does not already exist.
-func WithNx() SetIOption {
-	return func(c ICache, k string, v *Item) bool {
-		if _, exist := c.Get(k); exist {
-			return false
-		}
-		return true
-	}
-}
-
-//WithXx Only set the key if it already exist.
-func WithXx() SetIOption {
-	return func(c ICache, k string, v *Item) bool {
-		if _, exist := c.Get(k); !exist {
-			return false
-		}
-		return true
-	}
-}
-
 type ICacheOption func(ICache)
 
 //WithCleanup set custom cleanup worker

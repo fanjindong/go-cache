@@ -26,11 +26,12 @@ func TestRingBufferWheel_Register(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cw.Register(tt.args.key, tt.args.expireAt)
-			if cw.buffers[tt.wantIndex].next.key != tt.args.key {
-				t.Errorf("Register() got key = %v, want %v", cw.buffers[tt.wantIndex].next.key, tt.args.key)
+			time.Sleep(100*time.Millisecond)
+			if _, ok := cw.buffers[tt.wantIndex].m[tt.args.key]; !ok {
+				t.Errorf("Register() got key = %v, not exist", tt.args.key)
 			}
-			if cw.buffers[tt.wantIndex].next.counter != tt.wantCounter {
-				t.Errorf("Register() got counter = %v, want %v", cw.buffers[tt.wantIndex].next.counter, tt.wantCounter)
+			if cw.buffers[tt.wantIndex].m[tt.args.key].counter != tt.wantCounter {
+				t.Errorf("Register() got counter = %v, want %v", cw.buffers[tt.wantIndex].m[tt.args.key].counter, tt.wantCounter)
 			}
 		})
 	}
