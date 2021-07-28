@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -507,6 +508,25 @@ func TestMemCache_AfterExpiration(t *testing.T) {
 			if got := tt.wantFunc(); got != tt.want {
 				t.Errorf("AfterExpiration() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestMemCache_Finalize(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "1"},
+	}
+	mc := NewMemCache()
+	mc.Set("a", 1)
+	mc.Set("b", 1, WithEx(1*time.Nanosecond))
+	closed := mc.IsClosed()
+	mc = nil
+	runtime.GC()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Log(<-closed)
 		})
 	}
 }

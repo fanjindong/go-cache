@@ -29,10 +29,13 @@ func (r *RingBufferWheel) Run(cache ICache) {
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
+		isClosed := cache.IsClosed()
 		for {
 			select {
 			case t := <-ticker.C:
 				r.buffers[t.Second()].Check()
+			case <-isClosed:
+				return
 			}
 		}
 	}()
