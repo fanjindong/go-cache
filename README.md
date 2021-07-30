@@ -26,10 +26,9 @@ func main() {
 ## Advanced
 
 ### Middleware
-- BeforeExpiration(mws ...Middleware): executed before a key expires
 - AfterExpiration(mws ...Middleware): executed after a key expires
 
-Demo: when a key expires, automatically reload.
+Demo: when a key expires, try to reload.
 
 ```go
 func reload() int{
@@ -39,7 +38,7 @@ func reload() int{
 func main() {
     c := cache.NewMemCache()
     m := func(key string, value interface{}) { c.Set(key, reload(), WithEx(1*time.Hour)) }
-    c.BeforeExpiration(m)
+    c.AfterExpiration(m)
     c.Set("k", reload(), cache.WithEx(1*time.Hour))
 }
 ```
