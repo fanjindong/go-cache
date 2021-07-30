@@ -139,20 +139,30 @@ func NewMemCache(opts ...ICacheOption) *MemCache {
 	return c
 }
 
+type IItem interface {
+	Expired() bool
+	CanExpire() bool
+	SetExpireAt(t time.Time)
+}
+
 type Item struct {
 	v      interface{}
 	expire time.Time
 }
 
 func (i *Item) Expired() bool {
-	if !i.HasExpiredAttributes() {
+	if !i.CanExpire() {
 		return false
 	}
 	return time.Now().After(i.expire)
 }
 
-func (i *Item) HasExpiredAttributes() bool {
+func (i *Item) CanExpire() bool {
 	return !i.expire.IsZero()
+}
+
+func (i *Item) SetExpireAt(t time.Time) {
+	i.expire = t
 }
 
 type MemCache struct {
@@ -174,7 +184,7 @@ func (c *memCache) Set(k string, v interface{}, opts ...SetIOption) bool {
 			return false
 		}
 	}
-	if item.HasExpiredAttributes() {
+	if item.CanExpire() {
 		c.rw.Lock()
 		c.cw.Register(k, item.expire)
 	} else {
@@ -287,7 +297,7 @@ func (c *memCache) Ttl(k string) (time.Duration, bool) {
 	c.rw.RLock()
 	v, found := c.m[k]
 	c.rw.RUnlock()
-	if !found || !v.HasExpiredAttributes() || v.Expired() {
+	if !found || !v.CanExpire() || v.Expired() {
 		return 0, false
 	}
 	return v.expire.Sub(time.Now()), true
