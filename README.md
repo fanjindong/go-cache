@@ -4,6 +4,8 @@
 
 Provides a memory-based `cache package` for `Gopher`, and its interface definition draws on the `Redis` protocol.
 
+Document: https://pkg.go.dev/github.com/fanjindong/go-cache
+
 ## Install
 
 `go get -u github.com/fanjindong/go-cache`
