@@ -9,16 +9,12 @@ import (
 	"time"
 )
 
-var c ICache
-
 func TestMain(m *testing.M) {
-	mockCache()
 	os.Exit(m.Run())
 }
 
-func mockCache() {
-	c = NewMemCache()
-	cw = c.GetCleanupWorker()
+func mockCache() ICache {
+	c := NewMemCache()
 	c.Set("int", 1)
 	c.Set("int32", int32(1))
 	c.Set("int64", int64(1))
@@ -26,6 +22,7 @@ func mockCache() {
 	c.Set("float64", 1.1)
 	c.Set("float32", float32(1.1))
 	c.Set("ex", 1, WithEx(1*time.Second))
+	return c
 }
 
 func TestItem_Expired(t *testing.T) {
@@ -42,7 +39,6 @@ func TestItem_Expired(t *testing.T) {
 		{name: "int32", fields: fields{v: 1, expire: time.Now().Add(1 * time.Second)}, want: false},
 		{name: "int64", fields: fields{v: 1, expire: time.Now().Add(-1 * time.Second)}, want: true},
 	}
-	mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &Item{
@@ -70,7 +66,7 @@ func TestMemCache_Del(t *testing.T) {
 		{name: "string,null", args: args{ks: []string{"string", "null"}}, want: 1},
 		{name: "null", args: args{ks: []string{"null"}}, want: 0},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Del(tt.args.ks...); got != tt.want {
@@ -94,7 +90,7 @@ func TestMemCache_Exists(t *testing.T) {
 		{name: "int64,null", args: args{ks: []string{"int64", "null"}}, want: false},
 		{name: "null", args: args{ks: []string{"null"}}, want: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Exists(tt.args.ks...); got != tt.want {
@@ -118,7 +114,7 @@ func TestMemCache_Expire(t *testing.T) {
 		{name: "int32", args: args{k: "int32", d: 1 * time.Second}, want: true},
 		{name: "null", args: args{k: "null", d: 1 * time.Second}, want: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Expire(tt.args.k, tt.args.d); got != tt.want {
@@ -142,7 +138,7 @@ func TestMemCache_ExpireAt(t *testing.T) {
 		{name: "int32", args: args{k: "int32", t: time.Now().Add(1 * time.Second)}, want: true},
 		{name: "null", args: args{k: "null", t: time.Now().Add(1 * time.Second)}, want: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.ExpireAt(tt.args.k, tt.args.t); got != tt.want {
@@ -166,9 +162,10 @@ func TestMemCache_Get(t *testing.T) {
 		{name: "int32", args: args{k: "int32"}, want: int32(1), want1: true},
 		{name: "int64", args: args{k: "int64"}, want: int64(1), want1: true},
 		{name: "string", args: args{k: "string"}, want: "a", want1: true},
+		{name: "ex", args: args{k: "ex"}, want: 1, want1: true},
 		{name: "null", args: args{k: "null"}, want: nil, want1: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := c.Get(tt.args.k)
@@ -195,7 +192,7 @@ func TestMemCache_GetDel(t *testing.T) {
 		{name: "int", args: args{k: "int"}, want: 1, want1: true},
 		{name: "int", args: args{k: "int"}, want: nil, want1: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := c.GetDel(tt.args.k)
@@ -224,8 +221,9 @@ func TestMemCache_GetSet(t *testing.T) {
 		{name: "int", args: args{k: "int", v: 0}, want: 1, want1: true},
 		{name: "int", args: args{k: "int", v: 1}, want: 0, want1: true},
 		{name: "null", args: args{k: "null", v: 1}, want: nil, want1: false},
+		{name: "null", args: args{k: "null", v: 0}, want: 1, want1: true},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := c.GetSet(tt.args.k, tt.args.v, tt.args.opts...)
@@ -255,7 +253,7 @@ func TestMemCache_Keys(t *testing.T) {
 		{name: "null", args: args{pattern: "^a.*"}, want: nil, wantErr: false},
 		{name: "int32", args: args{pattern: "int32"}, want: []string{"int32"}, wantErr: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := c.Keys(tt.args.pattern)
@@ -285,7 +283,7 @@ func TestMemCache_Persist(t *testing.T) {
 		{name: "ex", args: args{k: "ex"}, want: true},
 		{name: "null", args: args{k: "null"}, want: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Persist(tt.args.k); got != tt.want {
@@ -308,7 +306,7 @@ func TestMemCache_PersistAndTtl(t *testing.T) {
 		{name: "int", args: args{k: "int"}, want: 0, want1: false},
 		{name: "ex", args: args{k: "ex"}, want: 0, want1: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c.Persist(tt.args.k)
@@ -332,7 +330,7 @@ func TestMemCache_RandomKey(t *testing.T) {
 	}{
 		{name: "int", want: "", want1: true},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := c.RandomKey()
@@ -362,7 +360,7 @@ func TestMemCache_Rename(t *testing.T) {
 		{name: "int64", args: args{k: "int64", nk: "string"}, want: true},
 		{name: "null", args: args{k: "null", nk: "int32"}, want: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Rename(tt.args.k, tt.args.nk); got != tt.want {
@@ -390,7 +388,7 @@ func TestMemCache_RenameAndGet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockCache()
+			c := mockCache()
 			c.Rename(tt.args.k, tt.args.nk)
 			got, got1 := c.Get(tt.args.nk)
 			if !reflect.DeepEqual(got, tt.want) {
@@ -418,6 +416,7 @@ func TestMemCache_Set(t *testing.T) {
 		{name: "int32", args: args{k: "int32", v: int32(2)}, want: true},
 		{name: "int64", args: args{k: "int64", v: int64(3)}, want: true},
 	}
+	c := NewMemCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := c.Set(tt.args.k, tt.args.v, tt.args.opts...); got != tt.want {
@@ -425,7 +424,6 @@ func TestMemCache_Set(t *testing.T) {
 			}
 		})
 	}
-	mockCache()
 }
 
 func TestMemCache_Ttl(t *testing.T) {
@@ -442,7 +440,7 @@ func TestMemCache_Ttl(t *testing.T) {
 		{name: "ex", args: args{k: "ex"}, want: 1 * time.Second, want1: true},
 		{name: "null", args: args{k: "null"}, want: 0, want1: false},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := c.Ttl(tt.args.k)
@@ -458,7 +456,8 @@ func TestMemCache_Ttl(t *testing.T) {
 
 func TestMemCache_DelExpired(t *testing.T) {
 	type args struct {
-		k string
+		k     string
+		sleep time.Duration
 	}
 	tests := []struct {
 		name string
@@ -466,11 +465,14 @@ func TestMemCache_DelExpired(t *testing.T) {
 		want int
 	}{
 		{name: "int", args: args{k: "int"}, want: 0},
-		{name: "exDelExpired", args: args{k: "exDelExpired"}, want: 1},
+		{name: "ex", args: args{k: "ex"}, want: 0},
+		{name: "ex1", args: args{k: "ex", sleep: time.Second}, want: 1},
+		{name: "null", args: args{k: "null"}, want: 0},
 	}
-	c.Set("exDelExpired", 1, WithEx(1*time.Nanosecond))
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			time.Sleep(tt.args.sleep)
 			if got := c.DelExpired(tt.args.k); got != tt.want {
 				t.Errorf("DelExpired() = %v, want %v", got, tt.want)
 			}
@@ -479,7 +481,7 @@ func TestMemCache_DelExpired(t *testing.T) {
 }
 
 func TestMemCache_AfterExpiration(t *testing.T) {
-	c := NewMemCache()
+	c := mockCache()
 	type args struct {
 		middlewares []Middleware
 	}
@@ -489,20 +491,21 @@ func TestMemCache_AfterExpiration(t *testing.T) {
 		wantFunc func() bool
 		want     bool
 	}{
-		{args: args{middlewares: []Middleware{func(key string, value interface{}) { t.Log("Middleware Set", key, value); c.Set(key, value) }}},
+		{args: args{
+			middlewares: []Middleware{func(key string, value interface{}) { c.Set(key, value) }}},
 			wantFunc: func() bool {
-				if c.Exists("100MillisecondExAfterExpiration") != true {
+				if c.Exists("ex") != true {
 					return false
 				}
-				time.Sleep(150 * time.Millisecond)
-				if c.Exists("100MillisecondExAfterExpiration") != false {
+				time.Sleep(1 * time.Second)
+				if c.Exists("ex") != false {
 					return false
 				}
-				return c.Exists("100MillisecondExAfterExpiration")
-			}, want: true},
+				return c.Exists("ex")
+			},
+			want: true},
 	}
 	for _, tt := range tests {
-		c.Set("100MillisecondExAfterExpiration", 1, WithEx(100*time.Millisecond))
 		t.Run(tt.name, func(t *testing.T) {
 			c.AfterExpiration(tt.args.middlewares...)
 			if got := tt.wantFunc(); got != tt.want {

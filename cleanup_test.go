@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-var cw ICleanupWorker
-
 func TestRingBufferWheel_Register(t *testing.T) {
 	now := time.Now()
 	type args struct {
@@ -21,18 +19,20 @@ func TestRingBufferWheel_Register(t *testing.T) {
 	}{
 		{name: "1", args: args{key: "1", expireAt: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 1, 0, now.Location())}, wantIndex: 2, wantCounter: 0},
 		{name: "2", args: args{key: "2", expireAt: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 59, 0, now.Location())}, wantIndex: 0, wantCounter: 0},
+		{name: "21", args: args{key: "21", expireAt: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 59, 0, now.Location())}, wantIndex: 0, wantCounter: 1},
 	}
 	cw := NewRingBufferWheel()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cw.Register(tt.args.key, tt.args.expireAt)
-			time.Sleep(100*time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 			if _, ok := cw.buffers[tt.wantIndex].m[tt.args.key]; !ok {
 				t.Errorf("Register() got key = %v, not exist", tt.args.key)
 			}
 			if cw.buffers[tt.wantIndex].m[tt.args.key].counter != tt.wantCounter {
 				t.Errorf("Register() got counter = %v, want %v", cw.buffers[tt.wantIndex].m[tt.args.key].counter, tt.wantCounter)
 			}
+			//t.Log(cw.buffers[tt.wantIndex])
 		})
 	}
 }

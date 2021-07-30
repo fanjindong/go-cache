@@ -205,10 +205,10 @@ func (c *memCache) Get(k string) (interface{}, bool) {
 	if !item.Expired() {
 		return item.v, true
 	}
-	for _, mw := range c.amw {
-		mw(k, item.v)
+	if c.DelExpired(k) == 1 {
+		return nil, false
 	}
-	return nil, false
+	return c.Get(k)
 }
 
 func (c *memCache) GetSet(k string, v interface{}, opts ...SetIOption) (interface{}, bool) {

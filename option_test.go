@@ -21,7 +21,7 @@ func TestWithEx(t *testing.T) {
 		{name: "int", args: args{key: "intWithEx", v: 1, opt: WithEx(10 * time.Millisecond)}, sleep: 10 * time.Millisecond, want: false},
 		{name: "int", args: args{key: "intWithEx", v: 1, opt: WithEx(100 * time.Millisecond)}, sleep: 50 * time.Millisecond, want: true},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c.Set(tt.args.key, "v", tt.args.opt)
@@ -50,7 +50,7 @@ func TestWithExAt(t *testing.T) {
 		{name: "int", args: args{key: "int", v: 1, opt: WithExAt(time.Now().Add(10 * time.Millisecond))}, sleep: 10 * time.Millisecond, want: false},
 		{name: "int", args: args{key: "int", v: 1, opt: WithExAt(time.Now().Add(100 * time.Millisecond))}, sleep: 50 * time.Millisecond, want: true},
 	}
-	mockCache()
+	c := mockCache()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c.Set(tt.args.key, tt.args.v, tt.args.opt)
