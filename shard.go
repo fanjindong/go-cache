@@ -93,7 +93,9 @@ func (c *memCacheShard) ttl(k string) (time.Duration, bool) {
 }
 
 func (c *memCacheShard) checkExpire() {
-	if c == nil{return}
+	if c == nil {
+		return
+	}
 	var expiredKeys []string
 	c.lock.RLock()
 	for k, item := range c.hashmap {

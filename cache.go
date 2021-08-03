@@ -94,14 +94,14 @@ func NewMemCache(opts ...ICacheOption) *MemCache {
 	}
 
 	c := &memCache{
-		shards:    make([]*memCacheShard, conf.Shards),
+		shards:    make([]*memCacheShard, conf.shards),
 		closed:    make(chan struct{}),
-		shardMask: uint64(conf.Shards - 1),
+		shardMask: uint64(conf.shards - 1),
 		config:    conf,
 		hash:      conf.hash,
 	}
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(conf.clearInterval)
 		for {
 			select {
 			case <-ticker.C:
