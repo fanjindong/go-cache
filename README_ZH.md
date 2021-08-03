@@ -50,13 +50,21 @@ cache.NewMemCache(cache.WithShards(8))
 可以定义一个回调函数 `callback function`, 当某个key过期时(仅过期触发，删除或覆盖操作不触发)，会执行回调函数`callback function`。
 
 ```go
-c := cache.NewMemCache(cache.WithExpiredCallback(func(k string, v interface{}) error{fmt.Println("ExpiredCallback", k, v)}))
-c.Set("k", 1)
-c.Set("kWithEx", 1, cache.WithEx(1*time.Second))
-time.sleep(1*time.Second)
-c.Get("k") // 1, true
-c.Get("kWithEx") // nil, false
-// output: ExpiredCallback kWithEx, 1
+import "github.com/fanjindong/go-cache"
+
+func main() {
+    f := func(k string, v interface{}) error{
+        fmt.Println("ExpiredCallback", k, v)
+        return nil
+    }
+    c := cache.NewMemCache(cache.WithExpiredCallback(f))
+    c.Set("k", 1)
+    c.Set("kWithEx", 1, cache.WithEx(1*time.Second))
+    time.sleep(1*time.Second)
+    c.Get("k")       // 1, true
+    c.Get("kWithEx") // nil, false
+    // output: ExpiredCallback kWithEx, 1
+}
 ```
 
 
