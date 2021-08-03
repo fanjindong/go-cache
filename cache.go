@@ -1,10 +1,7 @@
 package cache
 
 import (
-	"math/rand"
-	"regexp"
 	"runtime"
-	"sync"
 	"time"
 )
 
@@ -48,8 +45,8 @@ type ICache interface {
 	//c.Set("demo1", "1")
 	//c.Set("demo2", "1", WithEx(1*time.Second))
 	//time.Sleep(1*time.Second)
-	//c.DelExpired("demo1", "demo2") //1
-	DelExpired(k string) int
+	//c.DelExpired("demo1", "demo2") //true
+	DelExpired(k string) bool
 	//Exists Returns if key exists.
 	//Return the number of exists keys.
 	//Example:
@@ -88,81 +85,39 @@ type ICache interface {
 	//c.Set("demo", "1", WithEx(10*time.Second))
 	//c.Ttl("demo") // 10*time.Second,true
 	Ttl(k string) (time.Duration, bool)
-	//RandomKey Return a random key.
-	//Return nil,false when the cache is empty.
-	//Example:
-	//c.Set("demo1", "1")
-	//c.Set("demo2", "1")
-	//c.Set("demo3", "1")
-	//c.RandomKey() // demo1 or demo2 or demo3
-	RandomKey() (string, bool)
-	//Rename Renames key to new key.
-	//If new key already exists it is overwritten.
-	//Returns an false when key does not exist.
-	//Example:
-	//c.Set("demo1", "1")
-	//c.Set("demo2", "2")
-	//c.Rename("demo1", "demo2")
-	//c.Get("demo1") //nil, false
-	//c.Get("demo2") //2, true
-	Rename(oldName string, newName string) bool
-	//Returns all keys matching pattern.
-	//Example:
-	//c.Set("demo", "0")
-	//c.Set("demo:1", "1")
-	//c.Set("demo:2", "2")
-	//c.Keys("demo:.*") // []string{"demo:1", "demo:2"}, nil
-	Keys(pattern string) ([]string, error)
-	// set the cleanup worker, default is RingBufferWheel
-	SetCleanupWorker(ICleanupWorker)
-	// get the cleanup worker
-	GetCleanupWorker() ICleanupWorker
-	//Middlewares executed after a key expires
-	AfterExpiration(mws ...Middleware)
-	//Returns a channel that blocks until the cache is closed
-	IsClosed() chan struct{}
 }
-
-type Middleware func(key string, value interface{})
 
 func NewMemCache(opts ...ICacheOption) *MemCache {
-	cache := &memCache{m: make(map[string]Item), closed: make(chan struct{})}
-	cache.SetCleanupWorker(NewRingBufferWheel())
+	conf := NewConfig()
 	for _, opt := range opts {
-		opt(cache)
+		opt(conf)
 	}
-	cache.cw.Run(cache)
-	c := &MemCache{cache}
+
+	c := &memCache{
+		shards:    make([]*memCacheShard, conf.Shards),
+		closed:    make(chan struct{}),
+		shardMask: uint64(conf.Shards - 1),
+		config:    conf,
+		hash:      conf.hash,
+	}
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				for _, shard := range c.shards {
+					shard.checkExpire()
+				}
+			case <-c.closed:
+				return
+			}
+		}
+	}()
+	cache := &MemCache{c}
 	// Associated finalizer function with obj.
 	// When the obj is unreachable, close the obj.
-	runtime.SetFinalizer(c, func(c *MemCache) { close(c.closed) })
-	return c
-}
-
-type IItem interface {
-	Expired() bool
-	CanExpire() bool
-	SetExpireAt(t time.Time)
-}
-
-type Item struct {
-	v      interface{}
-	expire time.Time
-}
-
-func (i *Item) Expired() bool {
-	if !i.CanExpire() {
-		return false
-	}
-	return time.Now().After(i.expire)
-}
-
-func (i *Item) CanExpire() bool {
-	return !i.expire.IsZero()
-}
-
-func (i *Item) SetExpireAt(t time.Time) {
-	i.expire = t
+	runtime.SetFinalizer(cache, func(cache *MemCache) { close(cache.closed) })
+	return cache
 }
 
 type MemCache struct {
@@ -170,11 +125,11 @@ type MemCache struct {
 }
 
 type memCache struct {
-	rw     sync.RWMutex
-	m      map[string]Item
-	cw     ICleanupWorker
-	amw    []Middleware //executed after a key expires
-	closed chan struct{}
+	shards    []*memCacheShard
+	hash      IHash
+	shardMask uint64
+	config    *Config
+	closed    chan struct{}
 }
 
 func (c *memCache) Set(k string, v interface{}, opts ...SetIOption) bool {
@@ -184,31 +139,16 @@ func (c *memCache) Set(k string, v interface{}, opts ...SetIOption) bool {
 			return false
 		}
 	}
-	if item.CanExpire() {
-		c.rw.Lock()
-		c.cw.Register(k, item.expire)
-	} else {
-		c.rw.Lock()
-	}
-	c.m[k] = item
-	c.rw.Unlock()
+	hashedKey := c.hash.Sum64(k)
+	shard := c.getShard(hashedKey)
+	shard.set(k, &item)
 	return true
 }
 
 func (c *memCache) Get(k string) (interface{}, bool) {
-	c.rw.RLock()
-	item, exist := c.m[k]
-	c.rw.RUnlock()
-	if !exist {
-		return nil, false
-	}
-	if !item.Expired() {
-		return item.v, true
-	}
-	if c.DelExpired(k) == 1 {
-		return nil, false
-	}
-	return c.Get(k)
+	hashedKey := c.hash.Sum64(k)
+	shard := c.getShard(hashedKey)
+	return shard.get(k)
 }
 
 func (c *memCache) GetSet(k string, v interface{}, opts ...SetIOption) (interface{}, bool) {
@@ -223,41 +163,19 @@ func (c *memCache) GetDel(k string) (interface{}, bool) {
 
 func (c *memCache) Del(ks ...string) int {
 	var count int
-	var expiredItem = make(map[string]interface{})
-	c.rw.Lock()
 	for _, k := range ks {
-		if v, found := c.m[k]; found {
-			delete(c.m, k)
-			if !v.Expired() {
-				count++
-			} else {
-				expiredItem[k] = v.v
-			}
-		}
-	}
-	c.rw.Unlock()
-	for k, v := range expiredItem {
-		for _, mw := range c.amw {
-			mw(k, v)
-		}
+		hashedKey := c.hash.Sum64(k)
+		shard := c.getShard(hashedKey)
+		count += shard.del(k)
 	}
 	return count
 }
 
 //DelExpired Only delete when key expires
-func (c *memCache) DelExpired(k string) int {
-	c.rw.Lock()
-	item, found := c.m[k]
-	if !found || !item.Expired() {
-		c.rw.Unlock()
-		return 0
-	}
-	delete(c.m, k)
-	c.rw.Unlock()
-	for _, mw := range c.amw {
-		mw(k, item.v)
-	}
-	return 1
+func (c *memCache) DelExpired(k string) bool {
+	hashedKey := c.hash.Sum64(k)
+	shard := c.getShard(hashedKey)
+	return shard.delExpired(k)
 }
 
 func (c *memCache) Exists(ks ...string) bool {
@@ -294,75 +212,20 @@ func (c *memCache) Persist(k string) bool {
 }
 
 func (c *memCache) Ttl(k string) (time.Duration, bool) {
-	c.rw.RLock()
-	v, found := c.m[k]
-	c.rw.RUnlock()
-	if !found || !v.CanExpire() || v.Expired() {
-		return 0, false
-	}
-	return v.expire.Sub(time.Now()), true
-}
-
-func (c *memCache) RandomKey() (string, bool) {
-	c.rw.RLock()
-	c.rw.RUnlock()
-	if len(c.m) == 0 {
-		return "", false
-	}
-
-	index := 0
-	randIndex := rand.Intn(len(c.m))
-	for k, _ := range c.m {
-		if index == randIndex {
-			return k, true
-		}
-		index++
-	}
-	return "", false
-}
-
-func (c *memCache) Rename(k string, nk string) bool {
-	c.rw.RLock()
-	item, found := c.m[k]
-	c.rw.RUnlock()
-	if !found {
-		return false
-	}
-
-	c.rw.Lock()
-	delete(c.m, k)
-	c.m[nk] = item
-	c.rw.Unlock()
-	return true
-}
-
-func (c *memCache) Keys(pattern string) ([]string, error) {
-	rg, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-	var keys []string
-	c.rw.RLock()
-	defer c.rw.RUnlock()
-	for k := range c.m {
-		if rg.MatchString(k) {
-			keys = append(keys, k)
-		}
-	}
-	return keys, nil
-}
-
-func (c *memCache) SetCleanupWorker(cw ICleanupWorker) {
-	c.cw = cw
-}
-func (c *memCache) GetCleanupWorker() ICleanupWorker {
-	return c.cw
-}
-
-func (c *memCache) AfterExpiration(middlewares ...Middleware) {
-	c.amw = append(c.amw, middlewares...)
+	hashedKey := c.hash.Sum64(k)
+	shard := c.getShard(hashedKey)
+	return shard.ttl(k)
 }
 
 func (c *memCache) IsClosed() chan struct{} {
 	return c.closed
+}
+
+func (c *memCache) getShard(hashedKey uint64) (shard *memCacheShard) {
+	shard = c.shards[hashedKey&c.shardMask]
+	if shard == nil {
+		shard = newMemCacheShard(c.config.expiredCallback)
+		c.shards[hashedKey&c.shardMask] = shard
+	}
+	return shard
 }

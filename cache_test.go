@@ -4,7 +4,6 @@ import (
 	"os"
 	"reflect"
 	"runtime"
-	"sort"
 	"testing"
 	"time"
 )
@@ -237,39 +236,6 @@ func TestMemCache_GetSet(t *testing.T) {
 	}
 }
 
-func TestMemCache_Keys(t *testing.T) {
-	type args struct {
-		pattern string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []string
-		wantErr bool
-	}{
-		{name: "int.*", args: args{pattern: "int.*"}, want: []string{"int", "int32", "int64"}, wantErr: false},
-		{name: "string.*", args: args{pattern: "string.*"}, want: []string{"string"}, wantErr: false},
-		{name: "float.*", args: args{pattern: "float.*"}, want: []string{"float32", "float64"}, wantErr: false},
-		{name: "null", args: args{pattern: "^a.*"}, want: nil, wantErr: false},
-		{name: "int32", args: args{pattern: "int32"}, want: []string{"int32"}, wantErr: false},
-	}
-	c := mockCache()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := c.Keys(tt.args.pattern)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Keys() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			sort.Strings(got)
-			sort.Strings(tt.want)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Keys() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMemCache_Persist(t *testing.T) {
 	type args struct {
 		k string
@@ -316,86 +282,6 @@ func TestMemCache_PersistAndTtl(t *testing.T) {
 			}
 			if got1 != tt.want1 {
 				t.Errorf("Ttl() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func TestMemCache_RandomKey(t *testing.T) {
-	tests := []struct {
-		name  string
-		forN  int
-		want  string
-		want1 bool
-	}{
-		{name: "int", want: "", want1: true},
-	}
-	c := mockCache()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := c.RandomKey()
-			t.Log(got, got1)
-			//if got != tt.want {
-			//	t.Errorf("RandomKey() got = %v, want %v", got, tt.want)
-			//}
-			if got1 != tt.want1 {
-				t.Errorf("RandomKey() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func TestMemCache_Rename(t *testing.T) {
-	type args struct {
-		k  string
-		nk string
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{name: "int", args: args{k: "int", nk: "intNew"}, want: true},
-		{name: "int32", args: args{k: "int32", nk: "int64"}, want: true},
-		{name: "int64", args: args{k: "int64", nk: "string"}, want: true},
-		{name: "null", args: args{k: "null", nk: "int32"}, want: false},
-	}
-	c := mockCache()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := c.Rename(tt.args.k, tt.args.nk); got != tt.want {
-				t.Errorf("Rename() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMemCache_RenameAndGet(t *testing.T) {
-	type args struct {
-		k  string
-		nk string
-	}
-	tests := []struct {
-		name  string
-		args  args
-		want  interface{}
-		want1 bool
-	}{
-		{name: "int2string", args: args{k: "int", nk: "string"}, want: 1, want1: true},
-		{name: "null2string", args: args{k: "null", nk: "string"}, want: "a", want1: true},
-		{name: "int2null", args: args{k: "int", nk: "null"}, want: 1, want1: true},
-		{name: "null2null", args: args{k: "null", nk: "null"}, want: nil, want1: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := mockCache()
-			c.Rename(tt.args.k, tt.args.nk)
-			got, got1 := c.Get(tt.args.nk)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RenameAndGet() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("RenameAndGet() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
@@ -462,12 +348,12 @@ func TestMemCache_DelExpired(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want int
+		want bool
 	}{
-		{name: "int", args: args{k: "int"}, want: 0},
-		{name: "ex", args: args{k: "ex"}, want: 0},
-		{name: "ex1", args: args{k: "ex", sleep: time.Second}, want: 1},
-		{name: "null", args: args{k: "null"}, want: 0},
+		{name: "int", args: args{k: "int"}, want: false},
+		{name: "ex", args: args{k: "ex"}, want: false},
+		{name: "ex1", args: args{k: "ex", sleep: time.Second}, want: true},
+		{name: "null", args: args{k: "null"}, want: false},
 	}
 	c := mockCache()
 	for _, tt := range tests {
@@ -475,41 +361,6 @@ func TestMemCache_DelExpired(t *testing.T) {
 			time.Sleep(tt.args.sleep)
 			if got := c.DelExpired(tt.args.k); got != tt.want {
 				t.Errorf("DelExpired() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMemCache_AfterExpiration(t *testing.T) {
-	c := mockCache()
-	type args struct {
-		middlewares []Middleware
-	}
-	tests := []struct {
-		name     string
-		args     args
-		wantFunc func() bool
-		want     bool
-	}{
-		{args: args{
-			middlewares: []Middleware{func(key string, value interface{}) { c.Set(key, value) }}},
-			wantFunc: func() bool {
-				if c.Exists("ex") != true {
-					return false
-				}
-				time.Sleep(1 * time.Second)
-				if c.Exists("ex") != false {
-					return false
-				}
-				return c.Exists("ex")
-			},
-			want: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c.AfterExpiration(tt.args.middlewares...)
-			if got := tt.wantFunc(); got != tt.want {
-				t.Errorf("AfterExpiration() = %v, want %v", got, tt.want)
 			}
 		})
 	}

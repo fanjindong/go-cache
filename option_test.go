@@ -62,32 +62,3 @@ func TestWithExAt(t *testing.T) {
 		})
 	}
 }
-
-type ringBufferWheelHello struct {
-	*RingBufferWheel
-}
-
-func (r *ringBufferWheelHello) Register(key string, expireAt time.Time) {
-	r.RingBufferWheel.Register(key, expireAt)
-}
-
-func TestWithCleanup(t *testing.T) {
-
-	type args struct {
-		cw ICleanupWorker
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{name: "int", args: args{cw: &ringBufferWheelHello{NewRingBufferWheel()}}, want: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := NewMemCache(WithCleanup(tt.args.cw))
-			c.Set("a", 1, WithEx(100*time.Millisecond))
-			time.Sleep(1 * time.Second)
-		})
-	}
-}
