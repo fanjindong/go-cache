@@ -15,8 +15,8 @@ type memCacheShard struct {
 	expiredCallback ExpiredCallback
 }
 
-func newMemCacheShard(expiredCallback ExpiredCallback) *memCacheShard {
-	return &memCacheShard{expiredCallback: expiredCallback, hashmap: map[string]Item{}}
+func newMemCacheShard(conf *Config) *memCacheShard {
+	return &memCacheShard{expiredCallback: conf.expiredCallback, hashmap: map[string]Item{}}
 }
 
 func (c *memCacheShard) set(k string, item *Item) {

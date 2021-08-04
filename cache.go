@@ -100,6 +100,9 @@ func NewMemCache(opts ...ICacheOption) *MemCache {
 		config:    conf,
 		hash:      conf.hash,
 	}
+	for i := 0; i < len(c.shards); i++ {
+		c.shards[i] = newMemCacheShard(conf)
+	}
 	go func() {
 		ticker := time.NewTicker(conf.clearInterval)
 		for {
@@ -222,10 +225,5 @@ func (c *memCache) IsClosed() chan struct{} {
 }
 
 func (c *memCache) getShard(hashedKey uint64) (shard *memCacheShard) {
-	shard = c.shards[hashedKey&c.shardMask]
-	if shard == nil {
-		shard = newMemCacheShard(c.config.expiredCallback)
-		c.shards[hashedKey&c.shardMask] = shard
-	}
-	return shard
+	return c.shards[hashedKey&c.shardMask]
 }
