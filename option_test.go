@@ -99,7 +99,7 @@ func TestWithExpiredCallback(t *testing.T) {
 			args: args{
 				do: func() {
 					c.Set("1", 1, WithEx(100*time.Millisecond))
-					time.Sleep(1 * time.Second)
+					time.Sleep(1100 * time.Millisecond)
 				},
 				ec: func(k string, v interface{}) error {
 					c.Set(k, 2)
