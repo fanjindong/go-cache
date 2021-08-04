@@ -77,8 +77,8 @@ func TestWithShards(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewMemCache(WithShards(tt.args.shards))
-			if len(c.shards) != tt.args.shards {
-				t.Errorf("WithShards() = %v, want %v", len(c.shards), tt.args.shards)
+			if len(c.(*MemCache).shards) != tt.args.shards {
+				t.Errorf("WithShards() = %v, want %v", len(c.(*MemCache).shards), tt.args.shards)
 			}
 		})
 	}

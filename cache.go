@@ -87,7 +87,7 @@ type ICache interface {
 	Ttl(k string) (time.Duration, bool)
 }
 
-func NewMemCache(opts ...ICacheOption) *MemCache {
+func NewMemCache(opts ...ICacheOption) ICache {
 	conf := NewConfig()
 	for _, opt := range opts {
 		opt(conf)
