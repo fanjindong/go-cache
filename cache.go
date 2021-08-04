@@ -220,10 +220,6 @@ func (c *memCache) Ttl(k string) (time.Duration, bool) {
 	return shard.ttl(k)
 }
 
-func (c *memCache) IsClosed() chan struct{} {
-	return c.closed
-}
-
 func (c *memCache) getShard(hashedKey uint64) (shard *memCacheShard) {
 	return c.shards[hashedKey&c.shardMask]
 }

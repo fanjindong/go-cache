@@ -375,7 +375,7 @@ func TestMemCache_Finalize(t *testing.T) {
 	mc := NewMemCache()
 	mc.Set("a", 1)
 	mc.Set("b", 1, WithEx(1*time.Nanosecond))
-	closed := mc.IsClosed()
+	closed := mc.closed
 	mc = nil
 	runtime.GC()
 	for _, tt := range tests {
