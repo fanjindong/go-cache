@@ -67,4 +67,15 @@ func main() {
 }
 ```
 
+### 自定义清理过期key的时间间隔
 
+根据你的业务场景，选择一个合适的清理间隔，能够进一步的提升性能。
+默认间隔是1秒
+
+```go
+import "github.com/fanjindong/go-cache"
+
+func main() {
+    c := cache.NewMemCache(cache.WithClearInterval(1*time.Minute))
+}
+```
