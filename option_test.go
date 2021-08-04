@@ -189,6 +189,12 @@ func TestWithClearInterval(t *testing.T) {
 				time.Sleep(110 * time.Millisecond)
 				return c.(*MemCache).shards[0].hashmap["ex"].v
 			}, want: nil},
+		{name: "no expire", args: args{d: 0},
+			got: func() interface{} {
+				c.Set("ex", 1, WithEx(10*time.Millisecond))
+				time.Sleep(110 * time.Millisecond)
+				return c.(*MemCache).shards[0].hashmap["ex"].v
+			}, want: 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

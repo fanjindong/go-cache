@@ -104,6 +104,9 @@ func NewMemCache(opts ...ICacheOption) *MemCache {
 		c.shards[i] = newMemCacheShard(conf)
 	}
 	go func() {
+		if conf.clearInterval <= 0 {
+			return
+		}
 		ticker := time.NewTicker(conf.clearInterval)
 		for {
 			select {
