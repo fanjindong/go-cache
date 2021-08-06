@@ -6,8 +6,6 @@
 
 Provides a memory-based `cache package` for `Gopher`.
 
-Document: https://pkg.go.dev/github.com/fanjindong/go-cache
-
 ## Install
 
 `go get -u github.com/fanjindong/go-cache`
