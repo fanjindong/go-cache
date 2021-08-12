@@ -4,6 +4,8 @@
 
 [中文文档](./README_ZH.md)
 
+![image](./images/OkavangoHerd_ZH-CN1931628892_1920x1080.jpg)
+
 Provides a memory-based `cache package` for `Gopher`.
 
 ## Install
