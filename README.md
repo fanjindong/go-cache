@@ -4,7 +4,7 @@
 
 [中文文档](./README_ZH.md)
 
-![image](./images/OkavangoHerd_ZH-CN1931628892_1920x1080.jpg)
+![image](./images/JavanCousins_ZH-CN2694602511_1920x1080.jpg)
 
 Provides a memory-based `cache package` for `Gopher`.
 
