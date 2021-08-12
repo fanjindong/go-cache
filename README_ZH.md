@@ -3,7 +3,7 @@
 [![CI](https://github.com/fanjindong/go-cache/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/fanjindong/go-cache/actions/workflows/main.yml)
 [![GoDoc](https://godoc.org/github.com/fanjindong/go-cache?status.svg)](https://pkg.go.dev/github.com/fanjindong/go-cache)
 
-![image](./images/JavanCousins_ZH-CN2694602511_1920x1080.jpg)
+![image](./images/ShyFive_ZH-CN0542113860_1920x1080.jpg)
 
 为`Gopher`提供一个基于内存的 `cache package`.
 
