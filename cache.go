@@ -108,6 +108,7 @@ func NewMemCache(opts ...ICacheOption) ICache {
 			return
 		}
 		ticker := time.NewTicker(conf.clearInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
