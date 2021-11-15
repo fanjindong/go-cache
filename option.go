@@ -2,7 +2,7 @@ package cache
 
 import "time"
 
-// The option used to cache set
+// SetIOption The option used to cache set
 type SetIOption func(ICache, string, IItem) bool
 
 //WithEx Set the specified expire time, in time.Duration.
@@ -21,13 +21,16 @@ func WithExAt(t time.Time) SetIOption {
 	}
 }
 
-// The option used to create the cache object
+// ICacheOption The option used to create the cache object
 type ICacheOption func(conf *Config)
 
 //WithShards set custom size of sharding. Default is 1024
 //The larger the size, the smaller the lock force, the higher the concurrency performance,
 //and the higher the memory footprint, so try to choose a size that fits your business scenario
 func WithShards(shards int) ICacheOption {
+	if shards <= 0 {
+		panic("Invalid shards")
+	}
 	return func(conf *Config) {
 		conf.shards = shards
 	}
@@ -48,7 +51,7 @@ func WithHash(hash IHash) ICacheOption {
 	}
 }
 
-//WithExpiredCallback set custom clear interval.
+//WithClearInterval set custom clear interval.
 //Interval for clearing expired key-value pairs. The default value is 1 second
 //If the d is 0, the periodic clearing function is disabled
 func WithClearInterval(d time.Duration) ICacheOption {
