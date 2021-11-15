@@ -30,6 +30,8 @@ func main() {
 
 并发场景下，相比于`github.com/patrickmn/go-cache`，有三倍的性能提升。
 
+[benchmark](https://github.com/fanjindong/go-cache/blob/f5f7a5e4739b7f7cc349f21cd53d6937bfee23e5/cache_benchmark_test.go#L96)
+
 ```text
 BenchmarkGoCacheConcurrentSetWithEx-8            	 3040422	       371 ns/op
 BenchmarkPatrickmnGoCacheConcurrentSetWithEx-8   	 1000000	      1214 ns/op
