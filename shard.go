@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Callback the function when the key-value pair expires
+// ExpiredCallback Callback the function when the key-value pair expires
 // Note that it is executed after expiration
 type ExpiredCallback func(k string, v interface{}) error
 
@@ -77,7 +77,7 @@ func (c *memCacheShard) delExpired(k string) bool {
 	delete(c.hashmap, k)
 	c.lock.Unlock()
 	if c.expiredCallback != nil {
-		c.expiredCallback(k, item.v)
+		_ = c.expiredCallback(k, item.v)
 	}
 	return true
 }
