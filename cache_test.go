@@ -366,6 +366,44 @@ func TestMemCache_DelExpired(t *testing.T) {
 	}
 }
 
+func TestMemCache_ToMap(t *testing.T) {
+	type args struct {
+		sleep time.Duration
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{name: "base", args: args{sleep: 0}, want: map[string]interface{}{
+			"int":     1,
+			"int32":   int32(1),
+			"int64":   int64(1),
+			"string":  "a",
+			"float64": 1.1,
+			"float32": float32(1.1),
+			"ex":      1,
+		}},
+		{name: "expired", args: args{sleep: 1 * time.Second}, want: map[string]interface{}{
+			"int":     1,
+			"int32":   int32(1),
+			"int64":   int64(1),
+			"string":  "a",
+			"float64": 1.1,
+			"float32": float32(1.1),
+		}},
+	}
+	c := mockCache()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			time.Sleep(tt.args.sleep)
+			if got := c.ToMap(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMemCache_Finalize(t *testing.T) {
 	tests := []struct {
 		name string

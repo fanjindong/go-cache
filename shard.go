@@ -105,3 +105,14 @@ func (c *memCacheShard) checkExpire() {
 		c.delExpired(k)
 	}
 }
+
+func (c *memCacheShard) saveToMap(target map[string]interface{}) {
+	c.lock.RLock()
+	for k, item := range c.hashmap {
+		if item.Expired() {
+			continue
+		}
+		target[k] = item.v
+	}
+	c.lock.RUnlock()
+}
