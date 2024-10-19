@@ -85,6 +85,18 @@ type ICache interface {
 	//c.Set("demo", "1", WithEx(10*time.Second))
 	//c.Ttl("demo") // 10*time.Second,true
 	Ttl(k string) (time.Duration, bool)
+	// ToMap converts the current cache into a map with string keys and interface{} values.
+	// Where the keys are the field names (as strings) and the values are the corresponding data.
+	// Returns:
+	//   A map[string]interface{} where each entry corresponds to a field of the object and its value.
+	// Example:
+	// c.Set("a", 1)
+	// c.Set("b", "uu")
+	// c.ToMap() return {"a":1,"b":"uu"}
+	// c.Expire("a", 1*time.Second)
+	// when sleep(1*time.Second)
+	// c.ToMap() return {"b":"uu"}
+	ToMap() map[string]interface{}
 }
 
 func NewMemCache(opts ...ICacheOption) ICache {
@@ -221,6 +233,14 @@ func (c *memCache) Ttl(k string) (time.Duration, bool) {
 	hashedKey := c.hash.Sum64(k)
 	shard := c.getShard(hashedKey)
 	return shard.ttl(k)
+}
+
+func (c *memCache) ToMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	for _, shard := range c.shards {
+		shard.saveToMap(result)
+	}
+	return result
 }
 
 func (c *memCache) getShard(hashedKey uint64) (shard *memCacheShard) {
